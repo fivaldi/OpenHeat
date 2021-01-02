@@ -1,0 +1,6 @@
+RPi.GPIO
+click
+requests
+simple-pid
+systemd-python
+w1thermsensor
