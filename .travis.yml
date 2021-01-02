@@ -8,7 +8,7 @@ matrix:
       env: TOXENV=py37
     - env: TOXENV=flake8
 before_install:
-  - sudo apt-get -y install python3-systemd
+  - sudo apt-get -y install libsystemd-dev
 install:
   - pip install tox
 script:
