@@ -1,6 +1,5 @@
 import logging
 import time
-from datetime import datetime
 
 import click
 from systemd.journal import JournalHandler
@@ -17,9 +16,11 @@ def main():
         log.info(sensor.get_temperature())
         time.sleep(60)
 
+
 @click.group()
 def cli():
     pass
+
 
 @cli.command()
 def run():
