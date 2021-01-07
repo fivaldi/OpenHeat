@@ -9,6 +9,14 @@ def test_load_config():
     assert config
 
 
+def test_load_controllers():
+    from openheat.controller import Controllers
+
+    dummy_openheat_data = {}
+    controllers = Controllers(dummy_openheat_data)
+    assert controllers
+
+
 def test_load_sensors():
     from openheat.sensor import Sensors
 

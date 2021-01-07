@@ -11,4 +11,4 @@ RUN apt-get -y update && \
     mkdir /app
 
 CMD cd /app && \
-    OPENHEAT_CONFIG=config.yaml.sample tox
+    OPENHEAT_CONFIG=config.yaml.sample tox -r
