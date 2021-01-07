@@ -1,0 +1,14 @@
+FROM debian:10.7
+
+RUN apt-get -y update && \
+    apt-get -y upgrade && \
+    apt-get -y install \
+        gcc \
+        libsystemd-dev \
+        pkg-config \
+        python3-dev \
+        tox && \
+    mkdir /app
+
+CMD cd /app && \
+    OPENHEAT_CONFIG=config.yaml.sample tox

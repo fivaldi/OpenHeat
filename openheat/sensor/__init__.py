@@ -24,7 +24,8 @@ class Sensors:
             sensor_module_file = os.path.join(sensor_base_dir, sensor_type + '.py')
 
             if not os.path.isfile(sensor_module_file):
-                raise ConfigError(f"Unknown sensor type: {sensor_type}")
+                raise ConfigError(f"Unknown sensor type {sensor_type} or module file"
+                                  f" {sensor_module_file} doesn't exist.")
 
             spec = importlib.util.spec_from_file_location(sensor_module_name, sensor_module_file)
             sensor_module = importlib.util.module_from_spec(spec)

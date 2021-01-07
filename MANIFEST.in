@@ -3,3 +3,5 @@ include config.yaml.sample
 include requirements.txt
 include test-requirements.txt
 recursive-include contrib
+recursive-include openheat/controller *.py
+recursive-include openheat/sensor *.py
