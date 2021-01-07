@@ -1,2 +1,5 @@
-include LICENSE requirements.txt
+include LICENSE
+include config.yaml.sample
+include requirements.txt
+include test-requirements.txt
 recursive-include contrib

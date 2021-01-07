@@ -5,7 +5,7 @@ language: python
 matrix:
   include:
     - python: 3.7
-      env: TOXENV=py37
+      env: TOXENV=py37 OPENHEAT_CONFIG=config.yaml.sample
     - env: TOXENV=flake8
 before_install:
   - sudo apt-get -y install libsystemd-dev
