@@ -46,7 +46,7 @@ class Controllers:
 
             thread = threading.Thread(
                 target=target,
-                name='Controller' + str(controller_counter) + '-' + controller_type.split('/')[-1],
+                name='Ctrl' + str(controller_counter) + '-' + controller_type.split('/')[-1],
                 args=(controller_config, self.openheat_data))
             thread.start()
             self.controllers.append(thread)
