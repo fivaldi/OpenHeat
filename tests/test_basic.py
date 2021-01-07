@@ -12,7 +12,8 @@ def test_load_config():
 def test_load_sensors():
     from openheat.sensor import Sensors
 
-    sensors = Sensors()
+    dummy_openheat_data = {}
+    sensors = Sensors(dummy_openheat_data)
     assert sensors
 
 
