@@ -1,0 +1,260 @@
+log_level: INFO
+
+heating_baselines:
+  temp_min: 15.0
+  temp_max: 25.0
+  temp_default: 21.0
+
+openweather_settings:
+  api_key: FIXME
+  location: City,XX
+
+weather_hourly_forecast_hrs: 5
+weather_weight_current: 1
+weather_weight_hourly_forecast: 5
+weather_baselines:
+  max_avg_temp: 13.0
+  min_avg_temp: -5.0
+  clouds_few: 20
+  wind_light: 1.4
+  wind_max: 16.4
+  negative_temp_index_factor: 3
+  humidity_base: 60
+
+smtp_settings:
+  server: FIXME
+  port: 25
+  auth_user: FIXME
+  auth_password: FIXME
+  from_name: FIXME
+  from_address: FIXME
+  to_address: FIXME
+
+sensors:
+  - name: 1st Floor
+    type: cz/brrr/TCZUNI1
+    host: 1.2.3.4
+    interval: seconds=15
+  - name: 2nd Floor
+    type: cz/brrr/TCZUNI1
+    host: 5.6.7.8
+    interval: seconds=15
+  - name: Heating Water Temp (output)
+    type: builtin/1_wire
+    interval: minutes=1
+
+controllers:
+  - name: Old Gas Boiler (on-off relay control)
+    type: builtin/simple_pid_on_off
+    gpio_pin: 25
+    sensors:
+      names:
+        - 1st Floor
+        - 2nd Floor
+      mode: min_temp
+      max_age: minutes=1
+    fallback_strategy:
+      - pseudo_equithermal: by_weather_temp
+      - time_proportional: 75
+  - name: Fan in Utility Room (air supply)
+    type: builtin/on_off
+    gpio_pin: 24
+    strategy:
+      on_with:
+        - controller: Old Gas Boiler (on-off relay control)
+          state: on
+      delayed_off_with:
+        - controller: Old Gas Boiler (on-off relay control)
+          state: off
+          delay: minutes=10
+
+programs:
+  - name: Winter / Humid / Windy
+    schedule:
+      mon: &prog1-workday
+        5:50: 21.5
+        8:30: 21.0
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 22.0
+        22:00: 20.0
+      tue: *prog1-workday
+      wed: *prog1-workday
+      thu: *prog1-workday
+      fri: &prog1-fri
+        5:50: 21.5
+        8:30: 21.0
+        14:30: 21.5
+        16:30: 22.0
+        18:30: 22.0
+        23:00: 20.0
+      sat: &prog1-sat
+        7:00: 21.5
+        12:00: 21.5
+        14:30: 21.5
+        16:30: 22.0
+        18:30: 22.0
+        23:00: 20.0
+      sun: &prog1-sun
+        7:00: 21.5
+        12:00: 21.5
+        14:30: 21.5
+        16:30: 22.0
+        18:30: 22.0
+        22:00: 20.0
+      holiday_day_before: *prog1-fri
+      holiday: *prog1-sat
+      holiday_last_day: *prog1-sun
+  - name: Cold / Humid
+    schedule:
+      mon: &prog2-workday
+        5:50: 21.5
+        8:30: 21.0
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 21.5
+        22:00: 19.5
+      tue: *prog2-workday
+      wed: *prog2-workday
+      thu: *prog2-workday
+      fri: &prog2-fri
+        5:50: 21.5
+        8:30: 21.0
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 22.0
+        23:00: 20.0
+      sat: &prog2-sat
+        7:00: 21.5
+        12:00: 21.5
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 22.0
+        23:00: 20.0
+      sun: &prog2-sun
+        7:00: 21.5
+        12:00: 21.5
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 22.0
+        22:00: 19.5
+      holiday_day_before: *prog2-fri
+      holiday: *prog2-sat
+      holiday_last_day: *prog2-sun
+  - name: Cloudy / Dry
+    is_fallback: true
+    schedule:
+      mon: &prog3-workday
+        5:50: 21.0
+        8:30: 20.5
+        14:30: 21.0
+        16:30: 21.5
+        18:30: 21.5
+        22:00: 19.5
+      tue: *prog3-workday
+      wed: *prog3-workday
+      thu: *prog3-workday
+      fri: &prog3-fri
+        5:50: 21.0
+        8:30: 20.5
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 21.5
+        23:00: 19.5
+      sat: &prog3-sat
+        7:00: 21.0
+        12:00: 21.0
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 21.5
+        23:00: 19.5
+      sun: &prog3-sun
+        7:00: 21.0
+        12:00: 21.0
+        14:30: 21.5
+        16:30: 21.5
+        18:30: 21.5
+        22:00: 19.5
+      holiday_day_before: *prog3-fri
+      holiday: *prog3-sat
+      holiday_last_day: *prog3-sun
+  - name: Few Clouds
+    schedule:
+      mon: &prog4-workday
+        5:50: 21.0
+        8:30: 20.5
+        14:30: 20.5
+        16:30: 21.0
+        18:30: 21.5
+        22:00: 19.0
+      tue: *prog4-workday
+      wed: *prog4-workday
+      thu: *prog4-workday
+      fri: &prog4-fri
+        5:50: 21.0
+        8:30: 20.5
+        14:30: 21.0
+        16:30: 21.0
+        18:30: 21.5
+        23:00: 19.0
+      sat: &prog4-sat
+        7:00: 21.0
+        12:00: 21.0
+        14:30: 21.0
+        16:30: 21.5
+        18:30: 21.5
+        23:00: 19.0
+      sun: &prog4-sun
+        7:00: 21.0
+        12:00: 21.0
+        14:30: 21.0
+        16:30: 21.5
+        18:30: 21.5
+        22:00: 19.0
+      holiday_day_before: *prog4-fri
+      holiday: *prog4-sat
+      holiday_last_day: *prog4-sun
+  - name: Clear Sky / Warm
+    schedule:
+      mon: &prog5-workday
+        5:50: 20.5
+        8:30: 20.0
+        14:30: 20.5
+        16:30: 20.5
+        18:30: 21.0
+        22:00: 19.0
+      tue: *prog5-workday
+      wed: *prog5-workday
+      thu: *prog5-workday
+      fri: &prog5-fri
+        5:50: 20.5
+        8:30: 20.0
+        14:30: 20.5
+        16:30: 21.0
+        18:30: 21.0
+        23:00: 19.0
+      sat: &prog5-sat
+        7:00: 20.5
+        12:00: 20.5
+        14:30: 20.5
+        16:30: 21.0
+        18:30: 21.0
+        23:00: 19.0
+      sun: &prog5-sun
+        7:00: 20.5
+        12:00: 20.5
+        14:30: 20.5
+        16:30: 21.0
+        18:30: 21.0
+        22:00: 19.0
+      holiday_day_before: *prog5-fri
+      holiday: *prog5-sat
+      holiday_last_day: *prog5-sun
+
+weather_index_to_program:
+  (0, 1.5): Winter / Humid / Windy
+  (1.5, 2): Cold / Humid
+  (2, 3): Cloudy / Dry
+  (3, 3.5): Few Clouds
+  (3.5, 4): Clear Sky / Warm
+  4: Clear Sky / Warm

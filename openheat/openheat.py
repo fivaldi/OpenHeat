@@ -1,26 +1,6 @@
-import sys
-import time
-
-import RPi.GPIO as GPIO
 import click
-from w1thermsensor import W1ThermSensor
 
-from openheat.config import openweather_settings, relay_to_gpio_pin
-from openheat.logger import log
-from openheat.weather import forecast_and_assess_weather_index
-
-
-def gpio_setup():
-    GPIO.setmode(GPIO.BCM)
-    for _, pin in relay_to_gpio_pin.items():
-        GPIO.setup(pin, GPIO.OUT)
-
-
-def boiler_temp_out():
-    sensor = W1ThermSensor()
-    while True:
-        log.info(sensor.get_temperature())
-        time.sleep(60)
+from openheat.config import config
 
 
 def main():
@@ -28,28 +8,46 @@ def main():
 
 
 @click.group()
-def cli():
-    pass
+@click.option('--log-level', type=click.Choice(['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']),
+              default=config.log_level)
+def cli(log_level):
+    config.log_level = log_level
 
 
 @cli.command()
 def test_relay():
-    gpio_setup()
-    for _, pin in relay_to_gpio_pin.items():
-        GPIO.output(pin, GPIO.LOW)
-        time.sleep(4)
-        GPIO.output(pin, GPIO.HIGH)
-        time.sleep(1)
+    import time
+
+    from openheat.logger import log
+    from openheat.gpio import GPIO
+
+    gpio = GPIO()
+
+    for controller in config.controllers:
+        if 'on_off' not in controller['type']:
+            log.debug(f"Controller {controller['name']} doesn't use ON-OFF relay. Skipping...")
+            continue
+        for out in ('LOW', 'HIGH'):
+            log.info(f"Setting GPIO pin for {controller['name']} to {out}")
+            gpio.output(controller['gpio_pin'], out)
+            time.sleep(4 if out == 'LOW' else 1)
 
 
 @cli.command()
-@click.option('--location', default=openweather_settings['location'], show_default=True)
+@click.option('--location', default=config.openweather_settings['location'], show_default=True)
 @click.option('--hours-from-now', default=0, help='Based on forecast data, compute weather index'
                                                   ' in the future time (hours offset).')
 def weather_index(location, hours_from_now):
-    openweather_settings['location'] = location
+    import sys
+
+    from openheat.logger import log
+    from openheat.weather import Weather
+
+    config.openweather_settings['location'] = location
+    weather = Weather()
+
     try:
-        forecast_and_assess_weather_index(hours_from_now)
+        weather.forecast_and_assess_weather_index(hours_from_now)
     except ValueError as e:
         log.error(str(e).rstrip('. ') + '. Exiting...')
         sys.exit(1)

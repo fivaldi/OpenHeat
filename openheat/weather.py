@@ -1,114 +1,110 @@
-import sys
 from datetime import datetime
 from statistics import mean
 
 import requests
 
-from openheat.config import (
-    openweather_settings, openweather_basic_api_url, openweather_onecall_api_url,
-    weather_hourly_forecast_hrs, weather_weight_current, weather_weight_hourly_forecast,
-    weather_max_avg_temp, weather_clouds_few, weather_wind_light, weather_min_avg_temp,
-    weather_negative_temp_index_factor, weather_humidity_base, weather_wind_max)
+from openheat.config import config
+from openheat.exceptions import ConfigError
 from openheat.logger import log
 from openheat.utils import clamp
 
-weather_forecast_data = {}
+OPENWEATHER_BASIC_API_URL = 'https://api.openweathermap.org/data/2.5/weather'
+OPENWEATHER_ONECALL_API_URL = 'https://api.openweathermap.org/data/2.5/onecall'
 
 
-def init_weather_lon_lat():
-    params = {'q': openweather_settings['location'],
-              'appid': openweather_settings['api_key'],
-              'units': 'metric'}
+class Weather:
+    def __init__(self):
+        self.lon_lat = None
+        self.weather_forecast_data = {}
 
-    lon_lat = None
-    try:
-        data = requests.get(openweather_basic_api_url, params=params)
-        data.raise_for_status()
-        lon_lat = (data.json()['coord']['lon'], data.json()['coord']['lat'])
-        log.debug(f"OpenWeather data: {data.json()}")
-    except requests.exceptions.HTTPError:
-        msg = f"OpenWeather responded with HTTP status code {data.status_code}."
-        if data.status_code == 404:
-            msg += f" Maybe unknown location '{openweather_settings['location']}'?"
-        log.error(msg)
-    except requests.exceptions.RequestException:
-        log.exception("Couldn't get data from OpenWeather.")
+        params = {'q': config.openweather_settings['location'],
+                  'appid': config.openweather_settings['api_key'],
+                  'units': 'metric'}
 
-    if not lon_lat:
-        log.error("Couldn't init weather location. Exiting...")
-        sys.exit(1)
-    openweather_settings['lon_lat'] = lon_lat
+        try:
+            data = requests.get(OPENWEATHER_BASIC_API_URL, params=params)
+            data.raise_for_status()
+            self.lon_lat = (data.json()['coord']['lon'], data.json()['coord']['lat'])
+            log.debug(f"OpenWeather data: {data.json()}")
+        except requests.exceptions.HTTPError:
+            msg = f"OpenWeather responded with HTTP status code {data.status_code}."
+            if data.status_code == 404:
+                msg += f" Maybe unknown location '{config.openweather_settings['location']}'?"
+            log.error(msg)
+        except requests.exceptions.RequestException:
+            log.exception("Couldn't get data from OpenWeather.")
 
+        if not self.lon_lat:
+            raise ConfigError("Couldn't init weather location.")
 
-def get_weather(hourly_forecast=False):
-    if not openweather_settings.get('lon_lat'):
-        init_weather_lon_lat()
+    def get_weather(self, hourly_forecast=False):
+        excludes = 'minutely,daily,alerts' if hourly_forecast else 'minutely,hourly,daily,alerts'
 
-    excludes = 'minutely,daily,alerts' if hourly_forecast else 'minutely,hourly,daily,alerts'
+        params = {'appid': config.openweather_settings['api_key'],
+                  'lon': self.lon_lat[0], 'lat': self.lon_lat[1],
+                  'exclude': excludes,
+                  'units': 'metric'}
+        weather = {}
+        try:
+            data = requests.get(OPENWEATHER_ONECALL_API_URL, params=params)
+            data.raise_for_status()
+            weather = data.json()
+            log.debug(f"OpenWeather data: {data.json()}")
+        except requests.exceptions.RequestException:
+            log.exception("Couldn't get data from OpenWeather.")
 
-    params = {'appid': openweather_settings['api_key'],
-              'lon': openweather_settings['lon_lat'][0],
-              'lat': openweather_settings['lon_lat'][1],
-              'exclude': excludes,
-              'units': 'metric'}
-    weather = {}
-    try:
-        data = requests.get(openweather_onecall_api_url, params=params)
-        data.raise_for_status()
-        weather = data.json()
-        log.debug(f"OpenWeather data: {data.json()}")
-    except requests.exceptions.RequestException:
-        log.exception("Couldn't get data from OpenWeather.")
+        return weather
 
-    return weather
+    def forecast_and_assess_weather_index(self, hours_from_now=0):
+        weather = self.get_weather(hourly_forecast=True)
+        if not weather:
+            return
 
+        current = self.weather_forecast_data['current'] = weather['current']
+        hourly = self.weather_forecast_data['hourly'] = weather['hourly']
 
-def forecast_and_assess_weather_index(hours_from_now=0):
-    weather = get_weather(hourly_forecast=True)
-    if not weather:
-        return
+        if hours_from_now + config.weather_hourly_forecast_hrs > len(hourly):
+            raise ValueError("Can't go beyond forecast data. Please lower the hours offset.")
 
-    current = weather_forecast_data['current'] = weather['current']
-    hourly = weather_forecast_data['hourly'] = weather['hourly']
+        if hours_from_now >= 1:
+            current = self.weather_forecast_data['current'] = weather['hourly'][hours_from_now - 1]
+            hourly = self.weather_forecast_data['hourly'] = weather['hourly'][hours_from_now:]
 
-    if hours_from_now + weather_hourly_forecast_hrs > len(hourly):
-        raise ValueError("Can't go beyond forecast data. Please lower the hours offset.")
+        averages = {}
 
-    if hours_from_now >= 1:
-        current = weather_forecast_data['current'] = weather['hourly'][hours_from_now - 1]
-        hourly = weather_forecast_data['hourly'] = weather['hourly'][hours_from_now:]
+        for value in 'temp', 'humidity', 'clouds', 'wind_speed':
+            mean_forecast_value = mean([v[value] for v
+                                        in hourly[0:config.weather_hourly_forecast_hrs]])
+            averages[value] = (
+                (config.weather_weight_current * current[value]
+                 + config.weather_weight_hourly_forecast * mean_forecast_value)
+                / (config.weather_weight_current + config.weather_weight_hourly_forecast))
 
-    averages = {}
+        weather_index_highest = 4
+        self.weather_forecast_data['as_of_datetime'] = datetime.now()
+        if (averages['temp'] >= config.weather_baselines['max_avg_temp']
+                and averages['clouds'] <= config.weather_baselines['clouds_few']
+                and averages['wind_speed'] <= config.weather_baselines['wind_light']):
+            weather_index = weather_index_highest
+        else:
+            temp_index = ((averages['temp'] - config.weather_baselines['max_avg_temp'])
+                          / (config.weather_baselines['min_avg_temp']
+                             - config.weather_baselines['max_avg_temp']))
+            if temp_index < 0:
+                temp_index *= config.weather_baselines['negative_temp_index_factor']
+            temp_index = clamp(temp_index, -weather_index_highest, 1)
+            humidity_index = clamp(
+                (averages['humidity'] - config.weather_baselines['humidity_base'])
+                / (100 - config.weather_baselines['humidity_base']), 0, 1)
+            clouds_index = clamp(averages['clouds'] / 100, 0, 1)
+            wind_index = clamp(averages['wind_speed'] / config.weather_baselines['wind_max'], 0, 1)
+            weather_index = (
+                weather_index_highest - (temp_index + humidity_index + clouds_index + wind_index))
+            log.info(f"Weather data: <temp: {temp_index}, humidity: {humidity_index},"
+                     f" clouds: {clouds_index}, wind: {wind_index}>")
 
-    for value in 'temp', 'humidity', 'clouds', 'wind_speed':
-        averages[value] = (
-            (weather_weight_current * current[value]
-             + weather_weight_hourly_forecast * mean([v[value] for v  # noqa: W503
-                                                     in hourly[0:weather_hourly_forecast_hrs]]))
-            / (weather_weight_current + weather_weight_hourly_forecast))  # noqa: W503
+        weather_index_clamped = clamp(weather_index, 0, 4)
+        log.info(f"Weather index for location {config.openweather_settings['location']}:"
+                 f" {weather_index_clamped}")
 
-    weather_index_highest = 4
-    weather_forecast_data['as_of_datetime'] = datetime.now()
-    if (averages['temp'] >= weather_max_avg_temp and averages['clouds'] <= weather_clouds_few
-            and averages['wind_speed'] <= weather_wind_light):  # noqa: W503
-        weather_index = weather_index_highest
-    else:
-        temp_index = ((averages['temp'] - weather_max_avg_temp)
-                      / (weather_min_avg_temp - weather_max_avg_temp))  # noqa: W503
-        if temp_index < 0:
-            temp_index *= weather_negative_temp_index_factor
-        temp_index = clamp(temp_index, -weather_index_highest, 1)
-        humidity_index = clamp(
-            (averages['humidity'] - weather_humidity_base) / (100 - weather_humidity_base), 0, 1)
-        clouds_index = clamp(averages['clouds'] / 100, 0, 1)
-        wind_index = clamp(averages['wind_speed'] / weather_wind_max, 0, 1)
-        weather_index = (
-            weather_index_highest - (temp_index + humidity_index + clouds_index + wind_index))
-        log.info(f"Weather data: <temp: {temp_index}, humidity: {humidity_index},"
-                 f" clouds: {clouds_index}, wind: {wind_index}>")
-
-    weather_index_clamped = clamp(weather_index, 0, 4)
-    log.info(f"Weather index for location {openweather_settings['location']}:"
-             f" {weather_index_clamped}")
-
-    weather_forecast_data['index'] = weather_index_clamped
+        self.weather_forecast_data['index'] = weather_index_clamped

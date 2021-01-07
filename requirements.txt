@@ -1,5 +1,6 @@
 RPi.GPIO
 click
+pyyaml
 requests
 simple-pid
 systemd-python
