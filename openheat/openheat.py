@@ -18,7 +18,6 @@ def main():
     controllers.start()
 
 
-
 @click.group()
 @click.option('--log-level', type=click.Choice(['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']),
               default=config.log_level)

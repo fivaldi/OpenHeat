@@ -1,6 +1,6 @@
 import sched
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from w1thermsensor import W1ThermSensor
 
