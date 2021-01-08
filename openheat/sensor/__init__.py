@@ -1,9 +1,12 @@
 import importlib.util
 import os
+import sched
 import threading
+import time
 
 from openheat.config import config
 from openheat.exceptions import ConfigError
+from openheat.utils import config_str_to_timedelta
 
 
 class Sensors:
@@ -51,3 +54,18 @@ class Sensors:
             self.sensors.append(thread)
 
             sensor_counter += 1
+
+
+class GenericSensor:
+    def __init__(self, config, openheat_data):
+        self.config = config
+        self.config['interval'] = config_str_to_timedelta(config['interval'])
+        self.openheat_data = openheat_data
+        self.scheduler = sched.scheduler(time.time, time.sleep)
+
+    def start(self):
+        self.scheduler.enter(0, 1, self._store_temperature_to_data)
+        while True:
+            self.scheduler.run(blocking=True)
+            self.scheduler.enter(self.config['interval'].total_seconds(), 1,
+                                 self._store_temperature_to_data)
