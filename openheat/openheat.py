@@ -2,9 +2,21 @@ import click
 
 from openheat.config import config
 
+openheat_data = {
+    'controllers': {},
+    'sensors': {},
+}
+
 
 def main():
-    pass
+    from openheat.controller import Controllers
+    from openheat.sensor import Sensors
+
+    controllers = Controllers(openheat_data)
+    sensors = Sensors(openheat_data)
+    sensors.start()
+    controllers.start()
+
 
 
 @click.group()

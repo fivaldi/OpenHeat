@@ -47,8 +47,16 @@ class Config:
 
         for k, v in self.raw_config.items():
             if k.startswith('_') or k.endswith('_'):
-                # Underscore prefixed/suffixed keys are not allowed -> ignoring
+                # Underscore prefixed/suffixed keys are not allowed -> ignoring...
                 continue
+
+            if k in ('controllers', 'sensors'):
+                registered_names = []
+                for item in self.raw_config[k]:
+                    if item['name'] in registered_names:
+                        raise ConfigError(f"Already registered name {item['name']} while scanning"
+                                          f" {k} configuration key. Names must be unique.")
+                    registered_names.append(item['name'])
 
             if k == 'weather_index_to_program':
                 self.weather_index_to_program = dict()
