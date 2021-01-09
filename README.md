@@ -6,10 +6,11 @@ Open source advanced control of central heating system infrastructure using simp
 ## Features (WIP)
 - Control your central heating system and its components from [one place](config.yaml.sample).
 - Switch heating programs depending on weather forecast: Considers factors like cloud coverage / humidity / wind etc.
-    - The are various reasons for this, e.g. to meet physiological temperature comfort requirement (subjective), heating economy / ecology (objective) and others...
-- Fallback strategies in case of temporary network issues.
+    - There are various objective and subjective reasons for this, e.g. to meet physiological temperature comfort requirements, accomplish heating economy / ecology, not waste time by heating programs switching / checking, and others.
+- Fallback strategies for heating controllers in case of temporary network issues.
 - Send mail notifications on various events.
-- Web service providing information about programs / sensors / controllers...
+- Web page overview about programs / sensors / controllers...
+- Collect OpenHeat data to CSV files.
 
 ## Supported Hardware
 
@@ -30,3 +31,10 @@ The prototype / development is based on Model „B“ (year ~2012) which means t
 $ docker build -t openheat-tests -f Dockerfile-tests .
 $ docker run -v </path/to/my/OpenHeat.git>:/app openheat-tests
 ```
+
+## Near / Far Future
+
+- Equithermal regulation / controller
+- [OpenTherm](https://en.wikipedia.org/wiki/OpenTherm) devices
+- _OpenHeat as a Service_
+- Mobile app
