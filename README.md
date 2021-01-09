@@ -5,7 +5,7 @@ Open source advanced control of central heating system infrastructure using simp
 
 ## Features (WIP)
 - Control your central heating system and its components from [one place](config.yaml.sample).
-- Switch heating programs depending on weather forecast: Considers factors like cloud coverage / humidity / wind etc.
+- Switch heating programs with regards to weather conditions, using [OpenWeather](https://openweathermap.org/) service: Considers factors like cloud coverage / humidity / wind etc.
     - There are various objective and subjective reasons for this, e.g. to meet physiological temperature comfort requirements, accomplish heating economy / ecology, not waste time by heating programs switching / checking, and others.
 - Fallback strategies for heating controllers in case of temporary network issues.
 - Send mail notifications on various events.
