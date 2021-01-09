@@ -3,10 +3,11 @@ import os
 import sched
 import threading
 import time
+import warnings
 
 from openheat.config import config
-from openheat.exceptions import ConfigError
-from openheat.utils import config_str_to_timedelta
+from openheat.exceptions import ConfigError, ConfigWarning
+from openheat.utils import clamp, config_str_to_timedelta
 
 
 class Sensors:
@@ -57,15 +58,21 @@ class Sensors:
 
 
 class GenericSensor:
+    timeout_margin = 5
+
     def __init__(self, config, openheat_data):
         self.config = config
-        self.config['interval'] = config_str_to_timedelta(config['interval'])
+        self.interval = config_str_to_timedelta(config['interval'])
+        self.timeout = clamp(self.interval.seconds, self.timeout_margin,
+                             self.interval.seconds - self.timeout_margin)
+        if self.timeout <= self.timeout_margin:
+            warnings.warn(f"Consider raising sensor interval: {config['interval']}",
+                          ConfigWarning)
         self.openheat_data = openheat_data
         self.scheduler = sched.scheduler(time.time, time.sleep)
 
     def start(self):
-        self.scheduler.enter(0, 1, self._store_temperature_to_data)
+        self.scheduler.enter(0, 1, self._store_data)
         while True:
             self.scheduler.run(blocking=True)
-            self.scheduler.enter(self.config['interval'].total_seconds(), 1,
-                                 self._store_temperature_to_data)
+            self.scheduler.enter(self.interval.total_seconds(), 1, self._store_data)
